@@ -6,9 +6,10 @@ description: Shooter is the magic battle item.
 commands:
   shooter:
     description: Shooter is the magic battle item.
-    #aliases: bp
+    aliases: sh
     usage: |
-           /<command> get [leve] - Get new shooter.
+           /<command> get [level] - Get new shooter.
+           /<command> give (player) [level] - Give new shooter.
     permission: shooter.get
     permission-message: You don't have permission "<permission>".
 permissions:

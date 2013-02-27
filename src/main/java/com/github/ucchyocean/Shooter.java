@@ -63,7 +63,7 @@ public class Shooter extends JavaPlugin implements Listener {
         if ( args[0].equalsIgnoreCase("get") ) {
 
             if ( !(sender instanceof Player) ) {
-                sender.sendMessage("This command can only use in game.");
+                sender.sendMessage(ChatColor.RED + "This command can only use in game.");
                 return true;
             }
 
@@ -78,7 +78,38 @@ public class Shooter extends JavaPlugin implements Listener {
                 }
             }
             shooter.addUnsafeEnchantment(Enchantment.OXYGEN, level);
+
+            ItemStack temp = player.getItemInHand();
             player.setItemInHand(shooter);
+            if ( temp != null ) {
+                player.getInventory().addItem(temp);
+            }
+
+            return true;
+
+        } else if ( args.length >= 2 && args[0].equalsIgnoreCase("give") ) {
+
+            Player player = getServer().getPlayerExact(args[1]);
+            if ( player == null ) {
+                sender.sendMessage(ChatColor.RED + "Player " + args[1] + " was not found.");
+                return true;
+            }
+
+            ItemStack shooter = this.shooter.clone();
+            int level = DEFAULT_LEVEL;
+            if ( args.length >= 3 && args[2].matches("^[0-9]+$") ) {
+                int temp = Integer.parseInt(args[2]);
+                if ( 1 <= temp && temp <= 10 ) {
+                    level = temp;
+                }
+            }
+            shooter.addUnsafeEnchantment(Enchantment.OXYGEN, level);
+
+            ItemStack temp = player.getItemInHand();
+            player.setItemInHand(shooter);
+            if ( temp != null ) {
+                player.getInventory().addItem(temp);
+            }
 
             return true;
         }
