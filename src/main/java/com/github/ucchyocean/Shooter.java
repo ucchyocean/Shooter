@@ -3,6 +3,8 @@
  */
 package com.github.ucchyocean;
 
+import java.util.ArrayList;
+
 import org.bukkit.ChatColor;
 import org.bukkit.Effect;
 import org.bukkit.Material;
@@ -36,9 +38,15 @@ public class Shooter extends JavaPlugin implements Listener {
 
         getServer().getPluginManager().registerEvents(this, this);
 
+        ArrayList<String> lore = new ArrayList<String>();
+        lore.add("飛びたい目標をクリックすることで、慣性を利かせながら飛ぶことが出来る。");
+        lore.add("飛べる回数は有限で、EXPバーで残り燃料を確認することが出来る。");
+        lore.add("これが切れると燃料切れ（チャージング）状態となり、Shooterを使用することが出来なくなる。");
+
         shooter = new ItemStack(Material.BOW, 1);
         ItemMeta shooterMeta = shooter.getItemMeta();
         shooterMeta.setDisplayName(SHOOTER_NAME);
+        shooterMeta.setLore(lore);
         shooter.setItemMeta(shooterMeta);
         ShapedRecipe shooterRecipe =
                 new ShapedRecipe(new ItemStack(shooter)).
