@@ -2,7 +2,25 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.ucchyocean</groupId>
   <artifactId>Shooter</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <build>
+    <finalName>${project.artifactId}</finalName>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.0</version>
+        <configuration>
+          <source>1.6</source>
+          <target>1.6</target>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 
   <repositories>
     <repository>
@@ -16,12 +34,7 @@
     <dependency>
       <groupId>org.bukkit</groupId>
       <artifactId>craftbukkit</artifactId>
-      <version>1.4.7-R1.0</version>
+      <version>1.5.2-R0.2-SNAPSHOT</version>
     </dependency>
   </dependencies>
-
-  <build>
-    <finalName>${project.artifactId}</finalName>
-  </build>
-
 </project>

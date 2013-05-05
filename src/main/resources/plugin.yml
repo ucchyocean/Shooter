@@ -1,6 +1,6 @@
 name: shooter
 main: com.github.ucchyocean.Shooter
-version: 1.0.0
+version: 1.1.0
 author: ucchy
 description: Shooter is the magic battle item.
 commands:
@@ -10,9 +10,9 @@ commands:
     usage: |
            /<command> get [level] - Get new shooter.
            /<command> give (player) [level] - Give new shooter.
-    permission: shooter.get
+    permission: shooter
     permission-message: You don't have permission "<permission>".
 permissions:
-  shooter.get:
+  shooter:
     description: Shooter get permission.
     default: true
