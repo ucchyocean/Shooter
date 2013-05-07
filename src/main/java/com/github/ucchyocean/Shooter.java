@@ -7,7 +7,9 @@ import java.util.ArrayList;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Effect;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
@@ -156,14 +158,22 @@ public class Shooter extends JavaPlugin implements Listener {
             return;
         }
 
+        Location eLoc = player.getEyeLocation().add(0.5D, 0.0D, 0.5D);
+
         if ( player.getTargetBlock(null, RANGE).getType() == Material.AIR ) {
             player.sendMessage(ChatColor.RED + "out of range!!");
+            player.playEffect(eLoc, Effect.SMOKE, 0);
+            player.playEffect(eLoc, Effect.SMOKE, 0);
+            player.playSound(eLoc, Sound.IRONGOLEM_THROW, (float)1.0, (float)1.5);
             event.setCancelled(true);
             return;
         }
 
         if ( !hasExperience(player, DEFAULT_COST) ) {
             player.sendMessage(ChatColor.RED + "no fuel!!");
+            player.playEffect(eLoc, Effect.SMOKE, 0);
+            player.playEffect(eLoc, Effect.SMOKE, 0);
+            player.playSound(eLoc, Sound.IRONGOLEM_THROW, (float)1.0, (float)1.5);
             event.setCancelled(true);
             return;
         }
@@ -175,8 +185,8 @@ public class Shooter extends JavaPlugin implements Listener {
 
         player.setVelocity(player.getLocation().getDirection().multiply(level));
         player.setFallDistance(-1000F);
-        player.playEffect(player.getEyeLocation().add(0.5D, 0.0D, 0.5D), Effect.POTION_BREAK, 21);
-        player.playEffect(player.getEyeLocation().add(0.5D, 0.0D, 0.5D), Effect.POTION_BREAK, 21);
+        player.playEffect(eLoc, Effect.POTION_BREAK, 21);
+        player.playEffect(eLoc, Effect.POTION_BREAK, 21);
 
         event.setCancelled(true);
     }
