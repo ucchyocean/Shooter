@@ -3,8 +3,6 @@
  */
 package com.github.ucchyocean;
 
-import java.util.ArrayList;
-
 import org.bukkit.ChatColor;
 import org.bukkit.Effect;
 import org.bukkit.Location;
@@ -21,6 +19,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 /**
  * @author ucchy
@@ -31,17 +30,12 @@ public class Shooter extends JavaPlugin implements Listener {
     private static final String NAME = "shooter";
     private static final String DISPLAY_NAME =
             ChatColor.BLUE.toString() + ChatColor.BOLD.toString() + NAME;
-    private static final ArrayList<String> LORE;
-    static {
-        LORE = new ArrayList<String>();
-        LORE.add("飛びたい目標をクリックすることで、慣性を利かせながら");
-        LORE.add("飛ぶことが出来る。飛べる回数は有限で、EXPバーで");
-        LORE.add("残り燃料を確認することが出来る。");
-    }
     private static final int DEFAULT_LEVEL = 4;
     private static final int DEFAULT_COST = 10;
     private static final int MAX_LEVEL = 15;
     private static final int RANGE = 50;
+    private static final int REVIVE_SECONDS = 5;
+    private static final int REVIVE_AMOUNT = 30;
 
     private ItemStack item;
 
@@ -56,7 +50,6 @@ public class Shooter extends JavaPlugin implements Listener {
         item = new ItemStack(Material.TRIPWIRE_HOOK, 1);
         ItemMeta shooterMeta = item.getItemMeta();
         shooterMeta.setDisplayName(DISPLAY_NAME);
-        shooterMeta.setLore(LORE);
         item.setItemMeta(shooterMeta);
     }
 
@@ -141,7 +134,7 @@ public class Shooter extends JavaPlugin implements Listener {
      */
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
+        final Player player = event.getPlayer();
 
         if ( player.getItemInHand() == null ||
                 player.getItemInHand().getType() == Material.AIR ||
@@ -158,12 +151,12 @@ public class Shooter extends JavaPlugin implements Listener {
             return;
         }
 
-        Location eLoc = player.getEyeLocation().add(0.5D, 0.0D, 0.5D);
+        Location eLoc = player.getEyeLocation();
 
         if ( player.getTargetBlock(null, RANGE).getType() == Material.AIR ) {
             player.sendMessage(ChatColor.RED + "out of range!!");
-            player.playEffect(eLoc, Effect.SMOKE, 0);
-            player.playEffect(eLoc, Effect.SMOKE, 0);
+            player.playEffect(eLoc, Effect.SMOKE, 4);
+            player.playEffect(eLoc, Effect.SMOKE, 4);
             player.playSound(eLoc, Sound.IRONGOLEM_THROW, (float)1.0, (float)1.5);
             event.setCancelled(true);
             return;
@@ -171,14 +164,24 @@ public class Shooter extends JavaPlugin implements Listener {
 
         if ( !hasExperience(player, DEFAULT_COST) ) {
             player.sendMessage(ChatColor.RED + "no fuel!!");
-            player.playEffect(eLoc, Effect.SMOKE, 0);
-            player.playEffect(eLoc, Effect.SMOKE, 0);
+            player.playEffect(eLoc, Effect.SMOKE, 4);
+            player.playEffect(eLoc, Effect.SMOKE, 4);
             player.playSound(eLoc, Sound.IRONGOLEM_THROW, (float)1.0, (float)1.5);
             event.setCancelled(true);
             return;
         }
 
         takeExperience(player, DEFAULT_COST);
+
+        if ( !hasExperience(player, DEFAULT_COST) ) {
+            BukkitRunnable runnable = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    takeExperience(player, -REVIVE_AMOUNT);
+                }
+            };
+            runnable.runTaskLater(this, REVIVE_SECONDS * 20);
+        }
 
         ItemStack shooter = player.getItemInHand();
         double level = (double)shooter.getEnchantmentLevel(Enchantment.OXYGEN);
