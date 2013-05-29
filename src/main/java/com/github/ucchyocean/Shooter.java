@@ -1,5 +1,7 @@
 /*
- * Copyright ucchy 2013
+ * @author     ucchy
+ * @license    GPLv3
+ * @copyright  Copyright ucchy 2013
  */
 package com.github.ucchyocean;
 
@@ -10,6 +12,7 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -22,8 +25,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 /**
- * @author ucchy
  * シューター
+ * @author ucchy
  */
 public class Shooter extends JavaPlugin implements Listener {
 
@@ -32,12 +35,19 @@ public class Shooter extends JavaPlugin implements Listener {
             ChatColor.BLUE.toString() + ChatColor.BOLD.toString() + NAME;
     private static final int DEFAULT_LEVEL = 4;
     private static final int DEFAULT_COST = 10;
-    private static final int MAX_LEVEL = 15;
-    private static final int RANGE = 50;
+    private static final int MAX_LEVEL = 20;
     private static final int REVIVE_SECONDS = 5;
     private static final int REVIVE_AMOUNT = 30;
+    private static final int DEFAULT_RANGE = 50;
 
     private ItemStack item;
+
+    private int configLevel;
+    private int configCost;
+    private boolean configRevive;
+    private int configReviveSeconds;
+    private int configReviveAmount;
+    private int configRange;
 
     /**
      * プラグインが有効になったときに呼び出されるメソッド
@@ -45,12 +55,31 @@ public class Shooter extends JavaPlugin implements Listener {
      */
     public void onEnable(){
 
+        saveDefaultConfig();
+        loadConfigDatas();
+
         getServer().getPluginManager().registerEvents(this, this);
 
         item = new ItemStack(Material.TRIPWIRE_HOOK, 1);
         ItemMeta shooterMeta = item.getItemMeta();
         shooterMeta.setDisplayName(DISPLAY_NAME);
         item.setItemMeta(shooterMeta);
+    }
+
+    /**
+     * 設定情報の読み込み処理
+     */
+    private void loadConfigDatas() {
+
+        FileConfiguration config = getConfig();
+        configLevel = config.getInt("defaultLevel", DEFAULT_LEVEL);
+        configCost = config.getInt("cost", DEFAULT_COST);
+        configRevive = config.getBoolean("revive", true);
+        if ( configRevive ) {
+            configReviveSeconds = config.getInt("reviveSeconds", REVIVE_SECONDS);
+            configReviveAmount = config.getInt("reviveAmount", REVIVE_AMOUNT);
+        }
+        configRange = config.getInt("range", DEFAULT_RANGE);
     }
 
     /**
@@ -74,7 +103,7 @@ public class Shooter extends JavaPlugin implements Listener {
 
             Player player = (Player)sender;
 
-            int level = DEFAULT_LEVEL;
+            int level = configLevel;
             if ( args.length >= 2 && args[1].matches("^[0-9]+$") ) {
                 level = Integer.parseInt(args[1]);
             }
@@ -91,7 +120,7 @@ public class Shooter extends JavaPlugin implements Listener {
                 return true;
             }
 
-            int level = DEFAULT_LEVEL;
+            int level = configLevel;
             if ( args.length >= 3 && args[2].matches("^[0-9]+$") ) {
                 level = Integer.parseInt(args[2]);
             }
@@ -136,6 +165,7 @@ public class Shooter extends JavaPlugin implements Listener {
     public void onPlayerInteract(PlayerInteractEvent event) {
         final Player player = event.getPlayer();
 
+        // シューターを手に持っているときに発生したイベントで無い場合は、無視する
         if ( player.getItemInHand() == null ||
                 player.getItemInHand().getType() == Material.AIR ||
                 player.getItemInHand().getItemMeta().getDisplayName() == null ||
@@ -143,6 +173,7 @@ public class Shooter extends JavaPlugin implements Listener {
             return;
         }
 
+        // 左クリック出なければ無視する。
         if ( event.getAction() == Action.PHYSICAL ) {
             return;
         } else if ( event.getAction() == Action.RIGHT_CLICK_AIR ||
@@ -153,7 +184,8 @@ public class Shooter extends JavaPlugin implements Listener {
 
         Location eLoc = player.getEyeLocation();
 
-        if ( player.getTargetBlock(null, RANGE).getType() == Material.AIR ) {
+        // クリックしたところが空か、遠すぎる場合
+        if ( player.getTargetBlock(null, configRange).getType() == Material.AIR ) {
             player.sendMessage(ChatColor.RED + "out of range!!");
             player.playEffect(eLoc, Effect.SMOKE, 4);
             player.playEffect(eLoc, Effect.SMOKE, 4);
@@ -162,7 +194,8 @@ public class Shooter extends JavaPlugin implements Listener {
             return;
         }
 
-        if ( !hasExperience(player, DEFAULT_COST) ) {
+        // 燃料が無い場合
+        if ( !hasExperience(player, configCost) ) {
             player.sendMessage(ChatColor.RED + "no fuel!!");
             player.playEffect(eLoc, Effect.SMOKE, 4);
             player.playEffect(eLoc, Effect.SMOKE, 4);
@@ -171,18 +204,22 @@ public class Shooter extends JavaPlugin implements Listener {
             return;
         }
 
-        takeExperience(player, DEFAULT_COST);
+        // 燃料消費
+        takeExperience(player, configCost);
 
-        if ( !hasExperience(player, DEFAULT_COST) ) {
+        // 今回の操作で燃料がなくなった場合、数秒後に復活させる
+        if ( configRevive && !hasExperience(player, configCost) ) {
             BukkitRunnable runnable = new BukkitRunnable() {
                 @Override
                 public void run() {
-                    takeExperience(player, -REVIVE_AMOUNT);
+                    takeExperience(player, -configReviveAmount);
                 }
             };
-            runnable.runTaskLater(this, REVIVE_SECONDS * 20);
+            runnable.runTaskLater(this, configReviveSeconds * 20);
+            player.sendMessage(ChatColor.GOLD + "your fuel will revive after " + configReviveSeconds + " seconds.");
         }
 
+        // 飛翔
         ItemStack shooter = player.getItemInHand();
         double level = (double)shooter.getEnchantmentLevel(Enchantment.OXYGEN);
 
