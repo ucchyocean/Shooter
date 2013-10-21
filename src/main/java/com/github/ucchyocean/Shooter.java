@@ -1,6 +1,6 @@
 /*
  * @author     ucchy
- * @license    GPLv3
+ * @license    LGPLv3
  * @copyright  Copyright ucchy 2013
  */
 package com.github.ucchyocean;
@@ -10,6 +10,7 @@ import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -21,8 +22,10 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.BlockIterator;
 
 /**
  * シューター
@@ -64,6 +67,21 @@ public class Shooter extends JavaPlugin implements Listener {
         ItemMeta shooterMeta = item.getItemMeta();
         shooterMeta.setDisplayName(DISPLAY_NAME);
         item.setItemMeta(shooterMeta);
+
+        // ColorTeaming のロード
+        Plugin colorteaming = null;
+        if ( getServer().getPluginManager().isPluginEnabled("ColorTeaming") ) {
+            colorteaming = getServer().getPluginManager().getPlugin("ColorTeaming");
+            String ctversion = colorteaming.getDescription().getVersion();
+            if ( isUpperVersion(ctversion, "2.2.0") ) {
+                getLogger().info("ColorTeaming がロードされました。連携機能を有効にします。");
+                ColorTeamingBridge bridge = new ColorTeamingBridge(colorteaming);
+                bridge.registerItem(item, NAME, DISPLAY_NAME);
+            } else {
+                getLogger().warning("ColorTeaming のバージョンが古いため、連携機能は無効になりました。");
+                getLogger().warning("連携機能を使用するには、ColorTeaming v2.2.0 以上が必要です。");
+            }
+        }
     }
 
     /**
@@ -94,7 +112,28 @@ public class Shooter extends JavaPlugin implements Listener {
             return false;
         }
 
-        if ( args[0].equalsIgnoreCase("get") ) {
+        if (args[0].equalsIgnoreCase("reload")) {
+
+            if (!sender.hasPermission("shooter.reload")) {
+                sender.sendMessage(ChatColor.RED
+                        + "You don't have permission \"shooter.reload\".");
+                return true;
+            }
+
+            // コンフィグ再読込
+            this.reloadConfig();
+            this.loadConfigDatas();
+            sender.sendMessage(ChatColor.GREEN + "Shooter configuration was reloaded!");
+
+            return true;
+
+        } else if ( args[0].equalsIgnoreCase("get") ) {
+
+            if (!sender.hasPermission("shooter.get")) {
+                sender.sendMessage(ChatColor.RED
+                        + "You don't have permission \"shooter.get\".");
+                return true;
+            }
 
             if ( !(sender instanceof Player) ) {
                 sender.sendMessage(ChatColor.RED + "This command can only use in game.");
@@ -113,6 +152,12 @@ public class Shooter extends JavaPlugin implements Listener {
             return true;
 
         } else if ( args.length >= 2 && args[0].equalsIgnoreCase("give") ) {
+
+            if (!sender.hasPermission("shooter.give")) {
+                sender.sendMessage(ChatColor.RED
+                        + "You don't have permission \"shooter.give\".");
+                return true;
+            }
 
             Player player = getServer().getPlayerExact(args[1]);
             if ( player == null ) {
@@ -165,7 +210,7 @@ public class Shooter extends JavaPlugin implements Listener {
     public void onPlayerInteract(PlayerInteractEvent event) {
         final Player player = event.getPlayer();
 
-        // シューターを手に持っているときに発生したイベントで無い場合は、無視する
+        // シューターを手に持っているときに発生したイベントでない場合は、無視する
         if ( player.getItemInHand() == null ||
                 player.getItemInHand().getType() == Material.AIR ||
                 player.getItemInHand().getItemMeta().getDisplayName() == null ||
@@ -173,7 +218,7 @@ public class Shooter extends JavaPlugin implements Listener {
             return;
         }
 
-        // 左クリック出なければ無視する。
+        // 左クリックでなければ無視する。
         if ( event.getAction() == Action.PHYSICAL ) {
             return;
         } else if ( event.getAction() == Action.RIGHT_CLICK_AIR ||
@@ -181,14 +226,18 @@ public class Shooter extends JavaPlugin implements Listener {
             event.setCancelled(true);
             return;
         }
+        
+        // パーミッションがないなら終了する
+        if ( !player.hasPermission("shooter.action") ) return;
 
         Location eLoc = player.getEyeLocation();
+        Block clicked = getTargetBlock(player, configRange);
 
         // クリックしたところが空か、遠すぎる場合
-        if ( player.getTargetBlock(null, configRange).getType() == Material.AIR ) {
+        if ( clicked == null ) {
             player.sendMessage(ChatColor.RED + "out of range!!");
-            player.playEffect(eLoc, Effect.SMOKE, 4);
-            player.playEffect(eLoc, Effect.SMOKE, 4);
+            player.getWorld().playEffect(eLoc, Effect.SMOKE, 4);
+            player.getWorld().playEffect(eLoc, Effect.SMOKE, 4);
             player.playSound(eLoc, Sound.IRONGOLEM_THROW, (float)1.0, (float)1.5);
             event.setCancelled(true);
             return;
@@ -197,8 +246,8 @@ public class Shooter extends JavaPlugin implements Listener {
         // 燃料が無い場合
         if ( !hasExperience(player, configCost) ) {
             player.sendMessage(ChatColor.RED + "no fuel!!");
-            player.playEffect(eLoc, Effect.SMOKE, 4);
-            player.playEffect(eLoc, Effect.SMOKE, 4);
+            player.getWorld().playEffect(eLoc, Effect.SMOKE, 4);
+            player.getWorld().playEffect(eLoc, Effect.SMOKE, 4);
             player.playSound(eLoc, Sound.IRONGOLEM_THROW, (float)1.0, (float)1.5);
             event.setCancelled(true);
             return;
@@ -221,14 +270,35 @@ public class Shooter extends JavaPlugin implements Listener {
 
         // 飛翔
         ItemStack shooter = player.getItemInHand();
-        double level = (double)shooter.getEnchantmentLevel(Enchantment.OXYGEN);
+        double level = DEFAULT_LEVEL;
+        if ( shooter.containsEnchantment(Enchantment.OXYGEN) )
+            level = (double)shooter.getEnchantmentLevel(Enchantment.OXYGEN);
 
         player.setVelocity(player.getLocation().getDirection().multiply(level));
         player.setFallDistance(-1000F);
-        player.playEffect(eLoc, Effect.POTION_BREAK, 21);
-        player.playEffect(eLoc, Effect.POTION_BREAK, 21);
+        player.getWorld().playEffect(eLoc, Effect.POTION_BREAK, 21);
+        player.getWorld().playEffect(eLoc, Effect.POTION_BREAK, 21);
 
         event.setCancelled(true);
+    }
+
+    
+    /**
+     * プレイヤーが向いている方向にあるブロックを取得する。
+     * @param player プレイヤー
+     * @param size 取得する最大距離、140以上を指定しないこと
+     * @return プレイヤーが向いている方向にあるブロック、取得できない場合はnullがかえされる
+     */
+    public static Block getTargetBlock(Player player, int size) {
+        
+        BlockIterator it = new BlockIterator(player, size);
+        while ( it.hasNext() ) {
+            Block b = it.next();
+            if ( b != null && b.getType() != Material.AIR ) {
+                return b;
+            }
+        }
+        return null;
     }
 
     /**
@@ -276,5 +346,46 @@ public class Shooter extends JavaPlugin implements Listener {
         }
         float xp = (float)total / (float)player.getExpToLevel();
         player.setExp(xp);
+    }
+
+    /**
+     * 指定されたバージョンが、基準より新しいバージョンかどうかを確認する<br>
+     * 完全一致した場合もtrueになることに注意。
+     * @param version 確認するバージョン
+     * @param border 基準のバージョン
+     * @return 基準より確認対象の方が新しいバージョンかどうか
+     */
+    private boolean isUpperVersion(String version, String border) {
+
+        String[] versionArray = version.split("\\.");
+        int[] versionNumbers = new int[versionArray.length];
+        for ( int i=0; i<versionArray.length; i++ ) {
+            if ( !versionArray[i].matches("[0-9]+") )
+                return false;
+            versionNumbers[i] = Integer.parseInt(versionArray[i]);
+        }
+
+        String[] borderArray = border.split("\\.");
+        int[] borderNumbers = new int[borderArray.length];
+        for ( int i=0; i<borderArray.length; i++ ) {
+            if ( !borderArray[i].matches("[0-9]+") )
+                return false;
+            borderNumbers[i] = Integer.parseInt(borderArray[i]);
+        }
+
+        int index = 0;
+        while ( (versionNumbers.length > index) && (borderNumbers.length > index) ) {
+            if ( versionNumbers[index] > borderNumbers[index] ) {
+                return true;
+            } else if ( versionNumbers[index] < borderNumbers[index] ) {
+                return false;
+            }
+            index++;
+        }
+        if ( borderNumbers.length == index ) {
+            return true;
+        } else {
+            return false;
+        }
     }
 }

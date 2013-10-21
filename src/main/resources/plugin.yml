@@ -1,18 +1,40 @@
-name: shooter
+name: Shooter
 main: com.github.ucchyocean.Shooter
-version: 1.1.7
+version: 2.0.0
 author: ucchy
 description: Shooter is the magic battle item.
+softdepend: [ColorTeaming]
 commands:
   shooter:
     description: Shooter is the magic battle item.
     aliases: sh
     usage: |
+           /<command> reload - Reload configuration.
            /<command> get [level] - Get new shooter.
            /<command> give (player) [level] - Give new shooter.
-    permission: shooter
+    permission: shooter.command
     permission-message: You don't have permission "<permission>".
 permissions:
-  shooter:
-    description: Shooter get permission.
+  shooter.command:
+    description: Command permission.
     default: true
+  shooter.reload:
+    description: Reload command permission.
+    default: op
+  shooter.get:
+    description: Get command permission.
+    default: op
+  shooter.give:
+    description: Give command permission.
+    default: op
+  shooter.action:
+    description: Use shooter permission.
+    default: true
+  shooter.*:
+    description: All of shooter permissions.
+    children:
+      shooter.command: true
+      shooter.reload: true
+      shooter.get: true
+      shooter.give: true
+      shooter.action: true
